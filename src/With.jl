@@ -1,6 +1,6 @@
-module Chain
+module With
 
-export @chain
+export @with
 
 is_aside(x) = false
 is_aside(x::Expr) = x.head == :macrocall && x.args[1] == Symbol("@aside")
@@ -121,15 +121,15 @@ end
 
 rewrite(l::LineNumberNode, replacement) = (l, replacement)
 
-function rewrite_chain_block(firstpart, block)
+function rewrite_with_block(firstpart, block)
     pushfirst!(block.args, firstpart)
-    rewrite_chain_block(block)
+    rewrite_with_block(block)
 end
 
 """
-    @chain(expr, exprs...)
+    @with(expr, exprs...)
 
-Rewrites a series of expressions into a chain, where the result of one expression
+Rewrites a series of expressions into a with, where the result of one expression
 is inserted into the next expression following certain rules.
 
 **Rule 1**
@@ -138,9 +138,9 @@ Any `expr` that is a `begin ... end` block is flattened.
 For example, these two pseudocodes are equivalent:
 
 ```julia
-@chain a b c d e f
+@with a b c d e f
 
-@chain a begin
+@with a begin
     b
     c
     d
@@ -158,7 +158,7 @@ If the expression is a symbol, the symbol is treated equivalently to a function 
 For example, the following code block
 
 ```julia
-@chain begin
+@with begin
     x
     f()
     @g()
@@ -186,12 +186,12 @@ end
 
 An expression that begins with `@aside` does not pass its result on to the following expression.
 Instead, the result of the previous expression will be passed on.
-This is meant for inspecting the state of the chain.
+This is meant for inspecting the state of the with.
 The expression within `@aside` will not get the previous result auto-inserted, you can use
 underscores to reference it.
 
 ```julia
-@chain begin
+@with begin
     [1, 2, 3]
     filter(isodd, _)
     @aside @info "There are \$(length(_)) elements after filtering"
@@ -206,7 +206,7 @@ In this case, the usual insertion rules apply to the right-hand side of that ass
 This can be used to store intermediate results.
 
 ```julia
-@chain begin
+@with begin
     [1, 2, 3]
     filtered = filter(isodd, _)
     sum
@@ -220,7 +220,7 @@ filtered == [1, 3]
 The `@.` macro may be used with a symbol to broadcast that function over the preceding result.
 
 ```julia
-@chain begin
+@with begin
     [1, 2, 3]
     @. sqrt
 end
@@ -229,16 +229,16 @@ end
 is equivalent to
 
 ```julia
-@chain begin
+@with begin
     [1, 2, 3]
     sqrt.(_)
 end
 ```
 
 """
-macro chain(initial_value, args...)
+macro with(initial_value, args...)
     block = flatten_to_single_block(initial_value, args...)
-    rewrite_chain_block(block)
+    rewrite_with_block(block)
 end
 
 function flatten_to_single_block(args...)
@@ -253,11 +253,11 @@ function flatten_to_single_block(args...)
     Expr(:block, blockargs...)
 end
 
-function rewrite_chain_block(block)
+function rewrite_with_block(block)
     block_expressions = block.args
     isempty(block_expressions) || 
         (length(block_expressions) == 1 && block_expressions[] isa LineNumberNode) &&
-        error("No expressions found in chain block.")
+        error("No expressions found in with block.")
 
     reconvert_docstrings!(block_expressions)
 
@@ -287,7 +287,7 @@ function rewrite_chain_block(block)
     :($(esc(result)))
 end
 
-# if a line in a chain is a string, it can be parsed as a docstring
+# if a line in a with is a string, it can be parsed as a docstring
 # for whatever is on the following line. because this is unexpected behavior
 # for most users, we convert all docstrings back to separate lines.
 function reconvert_docstrings!(args::Vector)
@@ -310,18 +310,18 @@ end
 function replace_underscores(expr::Expr, replacement)
     found_underscore = false
 
-    # if a @chain macrocall is found, only its first arg can be replaced if it's an
+    # if a @with macrocall is found, only its first arg can be replaced if it's an
     # underscore, otherwise the macro insides are left untouched
-    if expr.head == :macrocall && expr.args[1] == Symbol("@chain")
-        length(expr.args) < 3 && error("Malformed nested @chain macro")
-        expr.args[2] isa LineNumberNode || error("Malformed nested @chain macro")
+    if expr.head == :macrocall && expr.args[1] == Symbol("@with")
+        length(expr.args) < 3 && error("Malformed nested @with macro")
+        expr.args[2] isa LineNumberNode || error("Malformed nested @with macro")
         arg3 = if expr.args[3] == Symbol("_")
             found_underscore = true
             replacement
         else
             expr.args[3]
         end
-        newexpr = Expr(:macrocall, Symbol("@chain"), expr.args[2], arg3, expr.args[4:end]...)
+        newexpr = Expr(:macrocall, Symbol("@with"), expr.args[2], arg3, expr.args[4:end]...)
     # for all other expressions, their arguments are checked for underscores recursively
     # and replaced if any are found
     else

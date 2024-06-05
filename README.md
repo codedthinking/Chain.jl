@@ -1,14 +1,14 @@
-# Chain.jl
+# With.jl
 
 A [Julia package](https://julialang.org/packages/) for piping a value through a series of transformation expressions using a more convenient syntax than Julia's native [piping functionality](https://docs.julialang.org/en/v1/manual/functions/#Function-composition-and-piping).
 
 <table>
-<tr><th>Chain.jl</th><th>Base Julia</th></tr>
+<tr><th>With.jl</th><th>Base Julia</th></tr>
 <tr>
 <td>
       
 ```julia
-@chain df begin
+@with df begin
   dropmissing
   filter(:id => >(6), _)
   groupby(:group)
@@ -61,11 +61,11 @@ end
 </tr>
 </table>
 
-## Summary
+    ## Summary
 
-Chain.jl exports the `@chain` macro.
+With.jl exports the `@with` macro.
 
-This macro rewrites a series of expressions into a chain, where the result of one expression
+This macro rewrites a series of expressions into a with, where the result of one expression
 is inserted into the next expression following certain rules.
 
 **Rule 1**
@@ -74,9 +74,9 @@ Any `expr` that is a `begin ... end` block is flattened.
 For example, these two pseudocodes are equivalent:
 
 ```julia
-@chain a b c d e f
+@with a b c d e f
 
-@chain a begin
+@with a begin
     b
     c
     d
@@ -94,7 +94,7 @@ If the expression is a symbol, the symbol is treated equivalently to a function 
 For example, the following code block
 
 ```julia
-@chain begin
+@with begin
     x
     f()
     @g()
@@ -122,12 +122,12 @@ end
 
 An expression that begins with `@aside` does not pass its result on to the following expression.
 Instead, the result of the previous expression will be passed on.
-This is meant for inspecting the state of the chain.
+This is meant for inspecting the state of the with.
 The expression within `@aside` will not get the previous result auto-inserted, you can use
 underscores to reference it.
 
 ```julia
-@chain begin
+@with begin
     [1, 2, 3]
     filter(isodd, _)
     @aside @info "There are \$(length(_)) elements after filtering"
@@ -142,7 +142,7 @@ In this case, the usual insertion rules apply to the right-hand side of that ass
 This can be used to store intermediate results.
 
 ```julia
-@chain begin
+@with begin
     [1, 2, 3]
     filtered = filter(isodd, _)
     sum
@@ -156,7 +156,7 @@ filtered == [1, 3]
 The `@.` macro may be used with a symbol to broadcast that function over the preceding result.
 
 ```julia
-@chain begin
+@with begin
     [1, 2, 3]
     @. sqrt
 end
@@ -165,7 +165,7 @@ end
 is equivalent to
 
 ```julia
-@chain begin
+@with begin
     [1, 2, 3]
     sqrt.(_)
 end
@@ -179,7 +179,7 @@ end
 - There is no need to type `|>` over and over
 - Any line can be commented out or in without breaking syntax, there is no problem with dangling `|>` symbols
 - The state of the pipeline can easily be checked with the `@aside` macro
-- Flattening of `begin ... end` blocks allows you to split your chain over multiple lines
+- Flattening of `begin ... end` blocks allows you to split your with over multiple lines
 - Because everything is just lines with separate expressions and not one huge function call, IDEs can show exactly in which line errors happened
 - Pipe is a name defined by Base Julia which can lead to conflicts
 
@@ -188,11 +188,11 @@ end
 An example with a DataFrame:
 
 ```julia
-using DataFrames, Chain
+using DataFrames, With
 
 df = DataFrame(group = [1, 2, 1, 2, missing], weight = [1, 3, 5, 7, missing])
 
-result = @chain df begin
+result = @with df begin
     dropmissing
     filter(r -> r.weight < 6, _)
     groupby(:group)
@@ -200,7 +200,7 @@ result = @chain df begin
 end
 ```
 
-The chain block is equivalent to this:
+The with block is equivalent to this:
 
 ```julia
 result = begin
@@ -211,17 +211,17 @@ result = begin
 end
 ```
 
-## Nested Chains
+## Nested Withs
 
-The `@chain` macro replaces all underscores in the following block, unless it encounters another `@chain` macrocall.
-In that case, the only underscore that is still replaced by the outer macro is the first argument of the inner `@chain`.
+The `@with` macro replaces all underscores in the following block, unless it encounters another `@with` macrocall.
+In that case, the only underscore that is still replaced by the outer macro is the first argument of the inner `@with`.
 You can use this, for example, in combination with the `@aside` macro if you need to process a side result further.
 
 ```julia
-@chain df begin
+@with df begin
     dropmissing
     filter(r -> r.weight < 6, _)
-    @aside @chain _ begin
+    @aside @with _ begin
             select(:group)
             CSV.write("filtered_groups.csv", _)
         end

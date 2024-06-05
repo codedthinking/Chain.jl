@@ -1,17 +1,17 @@
-using Chain
+using With
 using Test
 
 
 @testset "1" begin
     x = [1, 2, 3]
     # one symbol
-    y = @chain x begin
+    y = @with x begin
         sum
     end
     @test y == sum(x)
 
     # two expressions
-    z = @chain x begin
+    z = @with x begin
         *(3)
         sum
     end
@@ -19,7 +19,7 @@ using Test
 
     # interleaved expressions
     called = false
-    zz = @chain x begin
+    zz = @with x begin
         .*(3)
         @aside @assert sum(_) / length(_) == 6 # this doesn't change anything
         @aside called = true # this also doesn't do the _ insertion and doesn't change anything
@@ -28,7 +28,7 @@ using Test
     @test zz == z
     @test called
 
-    zzz = @chain x begin
+    zzz = @with x begin
         _ .* 3
         sum
     end
@@ -37,7 +37,7 @@ end
 
 @testset "2" begin
     x = 1:4
-    y = @chain x begin
+    y = @with x begin
         filter(isodd, _)
         map(-, _)
         sum
@@ -48,7 +48,7 @@ end
 
 @testset "nested begin" begin
     x = 1:5
-    y = @chain x begin
+    y = @with x begin
         begin
             z = sum(_) + 3
             z - 7
@@ -60,38 +60,38 @@ end
 
 @testset "no begin" begin
     x = [1, 2, 3]
-    y = @chain x sum
+    y = @with x sum
     @test y == 6
 
     f() = 1
-    y = @chain f() first
+    y = @with f() first
     @test y == 1
 
-    y = @chain x sum(_) max(0, _) first
+    y = @with x sum(_) max(0, _) first
     @test y == 6
 
-    y = @chain 1 (t -> t + 1)()
+    y = @with 1 (t -> t + 1)()
     @test y == 2
 
-    y = @chain 1 (t -> t + 1)() first max(0, _)
+    y = @with 1 (t -> t + 1)() first max(0, _)
     @test y == 2
 
-    y = @chain 1 (==(2))
+    y = @with 1 (==(2))
     @test y == false
 
-    y = @chain 1 (==(2)) first (==(false))
+    y = @with 1 (==(2)) first (==(false))
     @test y == true
 
-    y = @chain 1 (_ + 1)
+    y = @with 1 (_ + 1)
     @test y == 2
 
-    y = @chain 1 (_ + 1) first max(0, _)
+    y = @with 1 (_ + 1) first max(0, _)
     @test y == 2
 
-    # the begin block will be different from the normal chain block here
+    # the begin block will be different from the normal with block here
     # only the last statement matters
     # EDIT: this has changed with the simplification in 0.6, the begin block in the middle is flattened out
-    y = @chain x begin
+    y = @with x begin
         _ .+ 1
         _ .+ 2
     end sum
@@ -101,18 +101,18 @@ end
 @testset "invalid invocations" begin
     # let block
     @test_throws LoadError eval(quote
-        @chain [1, 2, 3] let
+        @with [1, 2, 3] let
             sum
         end
     end)
 end
 
-@testset "nested chains" begin
+@testset "nested withs" begin
     x = 1:5
     local z
-    y = @chain x begin
+    y = @with x begin
         _ * 2
-        @aside @chain _ begin
+        @aside @with _ begin
             sum(_)
             _ * 2
             @aside z = _
@@ -125,14 +125,14 @@ end
 
 @testset "broadcast macro symbol" begin
     x = 1:5
-    y = @chain x begin
+    y = @with x begin
         @. sin
         sum
     end
     @test y == sum(sin.(x))
 
     ## leave non-symbol invocations intact
-    yy = @chain x begin
+    yy = @with x begin
         @. sin(_)
         sum
     end
@@ -150,24 +150,24 @@ end
 @testset "splicing into macro calls" begin
 
     x = 1
-    y = @chain x begin
+    y = @with x begin
         @sin
     end
     @test y == sin(x)
 
-    y = @chain x begin
+    y = @with x begin
         @sin()
     end
     @test y == sin(x)
 
     xx = [1, 2, 3, 4]
-    yy = @chain xx begin
+    yy = @with xx begin
         @broadcastminus(2.5)
     end
     @test yy == broadcast(-, xx, 2.5)
 
     xxx = [1, 2, 3, 4]
-    yyy = @chain xxx begin
+    yyy = @with xxx begin
         @broadcastminus(2.5, _)
     end
     @test yyy == broadcast(-, 2.5, xxx)
@@ -176,35 +176,35 @@ end
 @testset "single arg version" begin
     x = [1, 2, 3]
 
-    xx = @chain begin
+    xx = @with begin
         x
     end
     @test xx == x
 
     # this has a different internal structure (one LineNumberNode missing I think)
-    @test x == @chain begin
+    @test x == @with begin
         x
     end
 
-    @test sum(x) == @chain begin
+    @test sum(x) == @with begin
         x
         sum
     end
 
-    y = @chain begin
+    y = @with begin
         x
         sum
     end
     @test y == sum(x)
 
-    z = @chain begin
+    z = @with begin
         x
         @. sqrt
         sum(_)
     end
     @test z == sum(sqrt.(x))
 
-    @test sum == @chain begin
+    @test sum == @with begin
         sum
     end
 end
@@ -213,20 +213,20 @@ end
     # empty
     if !(VERSION < v"1.1") # weird interaction with test macros in 1.0
         @test_throws LoadError eval(quote
-            @chain begin
+            @with begin
             end
         end)
     end
 
     # rvalue _ errors
     @test_throws ErrorException eval(quote
-        @chain begin
+        @with begin
             _
         end
     end)
 
     @test_throws ErrorException eval(quote
-        @chain begin
+        @with begin
             sum(_)
         end
     end)
@@ -234,11 +234,11 @@ end
 
 @testset "handling keyword argments" begin
     f(a; kwarg) = (a, kwarg)
-    @test (:a, :kwarg) == @chain begin
+    @test (:a, :kwarg) == @with begin
         :a
         f(kwarg = :kwarg)
     end
-    @test (:a, :kwarg) == @chain begin
+    @test (:a, :kwarg) == @with begin
         :a
         f(; kwarg = :kwarg)
     end
@@ -247,7 +247,7 @@ end
 # issue 13
 @testset "no argument call" begin
     x = 1
-    y = @chain x begin
+    y = @with x begin
         sin()
     end
     @test y == sin(x)
@@ -257,7 +257,7 @@ end
 @testset "broadcasting calls" begin
 
     xs = [1, 2, 3]
-    ys = @chain xs begin
+    ys = @with xs begin
         sin.()
     end
     @test ys == sin.(xs)
@@ -265,20 +265,20 @@ end
     add(x, y) = x + y
 
     zs = [4, 5, 6]
-    sums = @chain xs begin
+    sums = @with xs begin
         add.(zs)
     end
     @test sums == add.(xs, zs)
 end
 
 # issue 16
-@testset "empty chain" begin
+@testset "empty with" begin
     a = 2
-    x = @chain a + 1 begin
+    x = @with a + 1 begin
     end
     @test x == 3
 
-    y = @chain begin
+    y = @with begin
         a + 1
     end
     @test y == 3
@@ -330,42 +330,42 @@ end
 
     xs = [1, 2, 3]
     pow = 4
-    y = @chain xs begin
+    y = @with xs begin
         LocalModule.square
         LocalModule.power(pow)
         Base.sum
     end
     @test y == sum(LocalModule.power(LocalModule.square(xs), pow))
 
-    y2 = @chain xs begin
+    y2 = @with xs begin
         LocalModule.SubModule.square
         LocalModule.SubModule.power(pow)
         Base.sum
     end
     @test y2 == sum(LocalModule.SubModule.power(LocalModule.SubModule.square(xs), pow))
 
-    y3 = @chain xs begin
+    y3 = @with xs begin
         @. LocalModule.add_one
         @. LocalModule.SubModule.add_one
     end
     @test y3 == LocalModule.SubModule.add_one.(LocalModule.add_one.(xs))
 
-    y4 = @chain xs begin
+    y4 = @with xs begin
         LocalModule.@broadcastminus(2.5)
     end
     @test y4 == LocalModule.@broadcastminus(xs, 2.5)
 
-    y5 = @chain xs begin
+    y5 = @with xs begin
         LocalModule.SubModule.@broadcastminus(2.5)
     end
     @test y5 == LocalModule.SubModule.@broadcastminus(xs, 2.5)
 
-    y6 = @chain 3 begin
+    y6 = @with 3 begin
         LocalModule.@sin
     end
     @test y6 == LocalModule.@sin(3)
 
-    y7 = @chain 3 begin
+    y7 = @with 3 begin
         LocalModule.SubModule.@sin
     end
     @test y7 == LocalModule.SubModule.@sin(3)
@@ -381,11 +381,11 @@ end
 
 @testset "keyword arguments" begin
     
-    @test 6 == @chain 2 begin
+    @test 6 == @with 2 begin
         kwfunc(; x = 3)
     end
 
-    @test 6 == @chain 2 begin
+    @test 6 == @with 2 begin
         @kwmac(; x = 3)
     end
 end
@@ -393,31 +393,31 @@ end
 @testset "@aside at the end" begin
     x = 1
 
-    @test 1 == @chain x begin
+    @test 1 == @with x begin
         @aside 1 + 2
     end
 
-    @test 2 == @chain x begin
+    @test 2 == @with x begin
         _ + 1
         @aside 1 + 2
     end
 end
 
 @testset "workaround for docstring parsing" begin
-    @test "hi" == @chain " hi " strip
-    @test "hi" == @chain " hi " begin
+    @test "hi" == @with " hi " strip
+    @test "hi" == @with " hi " begin
         strip
     end
-    @test "hi" == @chain begin
+    @test "hi" == @with begin
         " hi "
         strip
     end
-    @test "hi" == @chain begin
+    @test "hi" == @with begin
         "hi"
         " $_ "
         strip
     end
-    @test "A" == @chain begin
+    @test "A" == @with begin
         'a'
         " $_ "
         strip
@@ -426,21 +426,21 @@ end
     end
 end
 
-@testset "nested single line chain" begin
-    @test 36 == @chain 1:3 begin
-        @chain _ sum _ ^ 2
+@testset "nested single line with" begin
+    @test 36 == @with 1:3 begin
+        @with _ sum _ ^ 2
     end
 end
 
 @testset "multiple begin end blocks" begin
-    @test "-9" == @chain 1:3 reverse begin
+    @test "-9" == @with 1:3 reverse begin
         first
     end _ ^ 2 begin
         -
         string
     end
 
-    @test_throws LoadError @eval @chain 1:3 reverse begin
+    @test_throws LoadError @eval @with 1:3 reverse begin
         first
         _ ^ 2
     end begin
@@ -449,7 +449,7 @@ end
 end
 
 @testset "variable assignment syntax" begin
-    result = @chain 1:10 begin
+    result = @with 1:10 begin
         x = filter(iseven, _)
         y = sum
         sqrt
@@ -460,7 +460,7 @@ end
 end
 
 module TestModule
-    using Chain
+    using With
 end
 
 @testset "no variable leaks" begin
@@ -469,7 +469,7 @@ end
     _names = allnames()
 
     TestModule.eval(quote
-        @chain 1:10 begin
+        @with 1:10 begin
             sum
             sqrt
         end
@@ -478,7 +478,7 @@ end
     @test setdiff(allnames(), _names) == Set()
 
     TestModule.eval(quote
-        @chain begin
+        @with begin
             1:10
             sum(_)
             sqrt(_)
@@ -488,7 +488,7 @@ end
     @test setdiff(allnames(), _names) == Set()
 
     TestModule.eval(quote
-        @chain begin
+        @with begin
             1:10
             x = sum(_)
             y = sqrt(_)
