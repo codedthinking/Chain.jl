@@ -61,10 +61,6 @@ end
 </tr>
 </table>
 
-## Build Status
-
-![Run tests](https://github.com/jkrumbiegel/Chain.jl/workflows/Run%20tests/badge.svg)
-
 ## Summary
 
 Chain.jl exports the `@chain` macro.
@@ -233,3 +229,7 @@ You can use this, for example, in combination with the `@aside` macro if you nee
     combine(:weight => sum => :total_weight)
 end
 ```
+
+## License
+
+This software is licensed under an [MIT License](LICENSE). Large parts of the software builds on [Chain.jl](https://github.com/jkrumbiegel/Chain.jl) by Julius Krumbiegel (2020), available under an MIT License.
