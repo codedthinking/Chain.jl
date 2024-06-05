@@ -17,45 +17,6 @@ using Test
     end
     @test z == sum(x .* 3)
 
-    # interleaved expressions
-    called = false
-    zz = @with x begin
-        .*(3)
-        @aside @assert sum(_) / length(_) == 6 # this doesn't change anything
-        @aside called = true # this also doesn't do the _ insertion and doesn't change anything
-        sum
-    end
-    @test zz == z
-    @test called
-
-    zzz = @with x begin
-        _ .* 3
-        sum
-    end
-    @test zzz == z
-end
-
-@testset "2" begin
-    x = 1:4
-    y = @with x begin
-        filter(isodd, _)
-        map(-, _)
-        sum
-        _ ^ 2
-    end
-    @test y == 16
-end
-
-@testset "nested begin" begin
-    x = 1:5
-    y = @with x begin
-        begin
-            z = sum(_) + 3
-            z - 7
-        end
-        sqrt
-    end
-    @test y == sqrt(sum(x) + 3 - 7)
 end
 
 @testset "no begin" begin
@@ -67,13 +28,7 @@ end
     y = @with f() first
     @test y == 1
 
-    y = @with x sum(_) max(0, _) first
-    @test y == 6
-
     y = @with 1 (t -> t + 1)()
-    @test y == 2
-
-    y = @with 1 (t -> t + 1)() first max(0, _)
     @test y == 2
 
     y = @with 1 (==(2))
@@ -82,20 +37,6 @@ end
     y = @with 1 (==(2)) first (==(false))
     @test y == true
 
-    y = @with 1 (_ + 1)
-    @test y == 2
-
-    y = @with 1 (_ + 1) first max(0, _)
-    @test y == 2
-
-    # the begin block will be different from the normal with block here
-    # only the last statement matters
-    # EDIT: this has changed with the simplification in 0.6, the begin block in the middle is flattened out
-    y = @with x begin
-        _ .+ 1
-        _ .+ 2
-    end sum
-    @test y == sum(x .+ 1 .+ 2)
 end
 
 @testset "invalid invocations" begin
@@ -107,22 +48,6 @@ end
     end)
 end
 
-@testset "nested withs" begin
-    x = 1:5
-    local z
-    y = @with x begin
-        _ * 2
-        @aside @with _ begin
-            sum(_)
-            _ * 2
-            @aside z = _
-        end
-        sum
-    end
-    @test y == sum(x * 2)
-    @test z != x * 2
-end
-
 @testset "broadcast macro symbol" begin
     x = 1:5
     y = @with x begin
@@ -131,12 +56,6 @@ end
     end
     @test y == sum(sin.(x))
 
-    ## leave non-symbol invocations intact
-    yy = @with x begin
-        @. sin(_)
-        sum
-    end
-    @test yy == sum(sin.(x))
 end
 
 macro sin(exp)
@@ -166,11 +85,6 @@ end
     end
     @test yy == broadcast(-, xx, 2.5)
 
-    xxx = [1, 2, 3, 4]
-    yyy = @with xxx begin
-        @broadcastminus(2.5, _)
-    end
-    @test yyy == broadcast(-, 2.5, xxx)
 end
 
 @testset "single arg version" begin
@@ -200,7 +114,7 @@ end
     z = @with begin
         x
         @. sqrt
-        sum(_)
+        sum
     end
     @test z == sum(sqrt.(x))
 
@@ -218,18 +132,6 @@ end
         end)
     end
 
-    # rvalue _ errors
-    @test_throws ErrorException eval(quote
-        @with begin
-            _
-        end
-    end)
-
-    @test_throws ErrorException eval(quote
-        @with begin
-            sum(_)
-        end
-    end)
 end
 
 @testset "handling keyword argments" begin
@@ -396,11 +298,6 @@ end
     @test 1 == @with x begin
         @aside 1 + 2
     end
-
-    @test 2 == @with x begin
-        _ + 1
-        @aside 1 + 2
-    end
 end
 
 @testset "workaround for docstring parsing" begin
@@ -412,49 +309,15 @@ end
         " hi "
         strip
     end
-    @test "hi" == @with begin
-        "hi"
-        " $_ "
-        strip
-    end
-    @test "A" == @with begin
-        'a'
-        " $_ "
-        strip
-        "$_"
-        uppercase
-    end
-end
-
-@testset "nested single line with" begin
-    @test 36 == @with 1:3 begin
-        @with _ sum _ ^ 2
-    end
-end
-
-@testset "multiple begin end blocks" begin
-    @test "-9" == @with 1:3 reverse begin
-        first
-    end _ ^ 2 begin
-        -
-        string
-    end
-
-    @test_throws LoadError @eval @with 1:3 reverse begin
-        first
-        _ ^ 2
-    end begin
-        123 # this can't be inserted into, only allowed in a first begin block
-    end
 end
 
 @testset "variable assignment syntax" begin
     result = @with 1:10 begin
-        x = filter(iseven, _)
+        x = sqrt.()
         y = sum
         sqrt
     end
-    @test x == filter(iseven, 1:10)
+    @test x == sqrt.(1:10)
     @test y == sum(x)
     @test result == sqrt(y)
 end
@@ -480,8 +343,8 @@ end
     TestModule.eval(quote
         @with begin
             1:10
-            sum(_)
-            sqrt(_)
+            sum
+            sqrt
         end
     end)
 
@@ -490,8 +353,8 @@ end
     TestModule.eval(quote
         @with begin
             1:10
-            x = sum(_)
-            y = sqrt(_)
+            x = sum
+            y = sqrt
         end
     end)
 

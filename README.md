@@ -61,7 +61,7 @@ end
 </tr>
 </table>
 
-    ## Summary
+## Summary
 
 With.jl exports the `@with` macro.
 
@@ -86,8 +86,7 @@ end e f
 **Rule 2**
 
 Any expression but the first (in the flattened representation) will have the preceding result
-inserted as its first argument, unless at least one underscore `_` is present.
-In that case, all underscores will be replaced with the preceding result.
+inserted as its first argument.
 
 If the expression is a symbol, the symbol is treated equivalently to a function call.
 
@@ -100,8 +99,6 @@ For example, the following code block
     @g()
     h
     @i
-    j(123, _)
-    k(_, 123, _)
 end
 ```
 
@@ -113,8 +110,6 @@ begin
     local temp2 = @g(temp1)
     local temp3 = h(temp2)
     local temp4 = @i(temp3)
-    local temp5 = j(123, temp4)
-    local temp6 = k(temp5, 123, temp5)
 end
 ```
 
@@ -125,6 +120,8 @@ Instead, the result of the previous expression will be passed on.
 This is meant for inspecting the state of the with.
 The expression within `@aside` will not get the previous result auto-inserted, you can use
 underscores to reference it.
+
+> FIXME: change example
 
 ```julia
 @with begin
@@ -175,7 +172,6 @@ end
 ## Motivation
 
 - The implicit first argument insertion is useful for many data pipeline scenarios, like `groupby`, `transform` and `combine` in DataFrames.jl
-- The `_` syntax is there to either increase legibility or to use functions like `filter` or `map` which need the previous result as the second argument
 - There is no need to type `|>` over and over
 - Any line can be commented out or in without breaking syntax, there is no problem with dangling `|>` symbols
 - The state of the pipeline can easily be checked with the `@aside` macro

@@ -106,12 +106,10 @@ function rewrite(expr, replacement)
         expr = expr.args[3] # 1 is macro symbol, 2 is LineNumberNode
     end
 
-    had_underscore, new_expr = replace_underscores(expr, replacement)
+    new_expr = expr
 
     if !aside
-        if !had_underscore
-            new_expr = insert_first_arg(new_expr, replacement)
-        end
+        new_expr = insert_first_arg(expr, replacement)
         replacement = gensym()
         new_expr = :(local $replacement = $new_expr)
     end
@@ -305,39 +303,6 @@ function reconvert_docstrings!(args::Vector)
         splice!(args, i:i, [str, nextline])
     end
     args
-end
-
-function replace_underscores(expr::Expr, replacement)
-    found_underscore = false
-
-    # if a @with macrocall is found, only its first arg can be replaced if it's an
-    # underscore, otherwise the macro insides are left untouched
-    if expr.head == :macrocall && expr.args[1] == Symbol("@with")
-        length(expr.args) < 3 && error("Malformed nested @with macro")
-        expr.args[2] isa LineNumberNode || error("Malformed nested @with macro")
-        arg3 = if expr.args[3] == Symbol("_")
-            found_underscore = true
-            replacement
-        else
-            expr.args[3]
-        end
-        newexpr = Expr(:macrocall, Symbol("@with"), expr.args[2], arg3, expr.args[4:end]...)
-    # for all other expressions, their arguments are checked for underscores recursively
-    # and replaced if any are found
-    else
-        newargs = map(x -> replace_underscores(x, replacement), expr.args)
-        found_underscore = any(first.(newargs))
-        newexpr = Expr(expr.head, last.(newargs)...)
-    end
-    return found_underscore, newexpr
-end
-
-function replace_underscores(x, replacement)
-    if x == Symbol("_")
-        true, replacement
-    else
-        false, x
-    end
 end
 
 end
