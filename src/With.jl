@@ -1,9 +1,11 @@
 module With
 
-export @with
+export @with, @with!
+
+aside_commands = (Symbol("@regress"), Symbol("@test"), Symbol("@summarize"))
 
 is_aside(x) = false
-is_aside(x::Expr) = x.head == :macrocall && x.args[1] == Symbol("@aside")
+is_aside(x::Expr) = x.head == :macrocall && x.args[1] in aside_commands
 
 
 insert_first_arg(symbol::Symbol, firstarg; assignment = false) = Expr(:call, symbol, firstarg)
@@ -235,8 +237,13 @@ end
 
 """
 macro with(initial_value, args...)
+    print(initial_value)
     block = flatten_to_single_block(initial_value, args...)
     rewrite_with_block(block)
+end
+
+macro with(initial_value, args...)
+    
 end
 
 function flatten_to_single_block(args...)
