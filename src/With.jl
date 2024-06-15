@@ -237,13 +237,12 @@ end
 
 """
 macro with(initial_value, args...)
-    print(initial_value)
     block = flatten_to_single_block(initial_value, args...)
     rewrite_with_block(block)
 end
 
-macro with(initial_value, args...)
-    
+macro with!(initial_value, args...)
+    :($(esc(initial_value)) = @with(initial_value, args...))
 end
 
 function flatten_to_single_block(args...)
