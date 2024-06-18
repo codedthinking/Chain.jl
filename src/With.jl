@@ -40,7 +40,6 @@ end
 function insert_first_arg(e::Expr, firstarg; assignment = false)
     head = e.head
     args = e.args
-
     # variable = ...
     # set assignment = true and rerun with right hand side
     if !assignment && head == :(=) && length(args) == 2
@@ -58,6 +57,9 @@ function insert_first_arg(e::Expr, firstarg; assignment = false)
     elseif head == :call && length(args) > 0
         if length(args) ≥ 2 && Meta.isexpr(args[2], :parameters)
             Expr(head, args[1:2]..., firstarg, args[3:end]...)
+        elseif args[1] in [:env, :scalars]
+            # does not have to insert first argument into $e
+            Expr(head, args...)
         else
             Expr(head, args[1], firstarg, args[2:end]...)
         end
@@ -103,11 +105,6 @@ end
 
 function rewrite(expr, replacement)
     aside = is_aside(expr)
-    if aside
-        length(expr.args) != 3 && error("Malformed @aside macro")
-        expr = expr.args[3] # 1 is macro symbol, 2 is LineNumberNode
-    end
-
     new_expr = expr
 
     if !aside
@@ -241,8 +238,11 @@ macro with(initial_value, args...)
     rewrite_with_block(block)
 end
 
+
 macro with!(initial_value, args...)
-    :($(esc(initial_value)) = @with(initial_value, args...))
+    block = flatten_to_single_block(initial_value, args...)
+    result = rewrite_with_block(block)
+    :($(esc(initial_value)) = $(result))
 end
 
 function flatten_to_single_block(args...)
@@ -285,7 +285,6 @@ function rewrite_with_block(block)
         rewritten, replacement = rewrite(expr, replacement)
         push!(rewritten_exprs, rewritten)
     end
-
     result = Expr(:block, rewritten_exprs..., replacement)
 
     :($(esc(result)))
