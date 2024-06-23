@@ -2,7 +2,7 @@ module With
 
 export @with, @with!
 
-aside_commands = (Symbol("@regress"), Symbol("@test"), Symbol("@summarize"))
+aside_commands = @isdefined Kezdi ? Kezdi.SIDE_EFFECTS : ()
 
 is_aside(x) = false
 is_aside(x::Expr) = x.head == :macrocall && x.args[1] in aside_commands
