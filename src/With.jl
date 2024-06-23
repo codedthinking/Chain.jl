@@ -2,7 +2,7 @@ module With
 
 export @with, @with!
 
-aside_commands = @isdefined Kezdi ? Kezdi.SIDE_EFFECTS : ()
+aside_commands = (@isdefined Kezdi) ? Kezdi.SIDE_EFFECTS : ()
 
 is_aside(x) = false
 is_aside(x::Expr) = x.head == :macrocall && x.args[1] in aside_commands
